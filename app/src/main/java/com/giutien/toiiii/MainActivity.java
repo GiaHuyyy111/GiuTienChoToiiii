@@ -1,105 +1,16 @@
 package com.giutien.toiiii;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.webkit.JavascriptInterface;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.webkit.*;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-
 public class MainActivity extends Activity {
-    private static final int FILE_CHOOSER_REQUEST = 101;
-    private static final int SAVE_BACKUP_REQUEST = 102;
-    private WebView webView;
-    private ValueCallback<Uri[]> filePathCallback;
-    private String pendingBackupData;
-    private String pendingBackupName;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.rgb(24,24,24));
-        getWindow().setNavigationBarColor(Color.rgb(24,24,24));
-
-        webView = new WebView(this);
-        setContentView(webView);
-
-        WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setAllowFileAccess(true);
-        s.setAllowContentAccess(true);
-        s.setDatabaseEnabled(true);
-
-        webView.setWebViewClient(new WebViewClient());
-        webView.addJavascriptInterface(new AndroidBridge(), "Android");
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
-                if (filePathCallback != null) filePathCallback.onReceiveValue(null);
-                filePathCallback = callback;
-                try {
-                    Intent intent = params.createIntent();
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("application/json");
-                    startActivityForResult(intent, FILE_CHOOSER_REQUEST);
-                    return true;
-                } catch (Exception e) {
-                    filePathCallback = null;
-                    return false;
-                }
-            }
-        });
-
-        webView.loadUrl("file:///android_asset/index.html");
-    }
-
-    public class AndroidBridge {
-        @JavascriptInterface
-        public void saveBackup(String data, String filename) {
-            pendingBackupData = data;
-            pendingBackupName = filename;
-            runOnUiThread(() -> {
-                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/json");
-                intent.putExtra(Intent.EXTRA_TITLE, filename == null ? "giu-tien-backup.json" : filename);
-                startActivityForResult(intent, SAVE_BACKUP_REQUEST);
-            });
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILE_CHOOSER_REQUEST) {
-            if (filePathCallback == null) return;
-            Uri[] result = null;
-            if (resultCode == RESULT_OK && data != null && data.getData() != null)
-                result = new Uri[]{data.getData()};
-            filePathCallback.onReceiveValue(result);
-            filePathCallback = null;
-        } else if (requestCode == SAVE_BACKUP_REQUEST) {
-            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingBackupData != null) {
-                try (OutputStream out = getContentResolver().openOutputStream(data.getData())) {
-                    if (out != null) out.write(pendingBackupData.getBytes(StandardCharsets.UTF_8));
-                } catch (Exception ignored) {}
-            }
-            pendingBackupData = null;
-            pendingBackupName = null;
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
-    }
+ private static final int PICK=101,SAVE=102; private WebView w; private ValueCallback<Uri[]> cb; private String backup,name;
+ @Override protected void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.rgb(24,24,24));getWindow().setNavigationBarColor(Color.rgb(24,24,24));w=new WebView(this);setContentView(w);WebSettings s=w.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(true);s.setAllowContentAccess(true);w.setWebViewClient(new WebViewClient());w.addJavascriptInterface(new Bridge(),"Android");w.setWebChromeClient(new WebChromeClient(){@Override public boolean onShowFileChooser(WebView v,ValueCallback<Uri[]> c,FileChooserParams p){if(cb!=null)cb.onReceiveValue(null);cb=c;try{Intent i=p.createIntent();i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");startActivityForResult(i,PICK);return true;}catch(Exception e){cb=null;return false;}}});w.loadUrl("file:///android_asset/index.html");}
+ public class Bridge{@JavascriptInterface public void saveBackup(String d,String n){backup=d;name=n;runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,name==null?"giu-tien-backup.json":name);startActivityForResult(i,SAVE);});}}
+ @Override protected void onActivityResult(int r,int result,Intent data){super.onActivityResult(r,result,data);if(r==PICK){if(cb==null)return;Uri[] out=null;if(result==RESULT_OK&&data!=null&&data.getData()!=null)out=new Uri[]{data.getData()};cb.onReceiveValue(out);cb=null;}else if(r==SAVE){if(result==RESULT_OK&&data!=null&&data.getData()!=null&&backup!=null){try(OutputStream o=getContentResolver().openOutputStream(data.getData())){if(o!=null)o.write(backup.getBytes(StandardCharsets.UTF_8));}catch(Exception ignored){}}backup=null;name=null;}}
+ @Override public void onBackPressed(){if(w!=null&&w.canGoBack())w.goBack();else super.onBackPressed();}
 }
